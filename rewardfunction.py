@@ -27,46 +27,57 @@ def reward_function(params):
     # Set the speed and steering thresholds based on action space
     CORNER_SPEED_THRESHOLD = 1
     CORNER_DIRECTION_THRESHOLD = 10.0
-    STRAIGHT_DIRECTION_THRESHOLD = 5.0
+    STRAIGHT_DIRECTION_THRESHOLD = 2.5
 
     # Initialize reward with a small number but not zero
     # because zero means off-track or crashed
-    speed_reward_weight = 1
+    reward_weight = 1
     reward = 1e-3
 
     # determine position in waypoint list from current waypoint
     # determine position in waypoint list from current waypoint
     next_point = waypoints[closest_waypoints[1]]
     prev_point = waypoints[closest_waypoints[0]]
-    # distant_point_index = waypoints.index[next_point] + 1
-    # distant_point = waypoints[distant_point_index]
+    prev2_point = waypoints[closest_waypoints[0] - 1]
+
+    # loop thru waypoint for distant waypoint
+    # keep this code in case waypoint distant and prev2 doesnt work
     last_track_point = prev_point
     distant_point = prev_point
-    for track_points in waypoints:
+    for track_point in waypoints:
         if last_track_point == next_point:
-            distant_point = track_points
-        last_track_point = track_points
-
+            distant_point = track_point
+        last_track_point = track_point
 
     # calculate is corner upcoming or is straight
     # Calculate the direction in radius, arctan2(dy, dx), the result is (-pi, pi) in radians
     # [1] in points is Y coord, [0] is x coord
     track_direction = math.degrees(math.atan2(next_point[1] - prev_point[1], next_point[0] - prev_point[0]))
-    distant_track_direction = math.degrees(math.atan2(distant_point[1] - next_point[1], distant_point[0] - next_point[0]))
-    direction_diff = abs(distant_track_direction- heading)
+    distant_track_dir = math.degrees(math.atan2(distant_point[1] - next_point[1], distant_point[0] - next_point[0]))
+    prev_track_direction = math.degrees(math.atan2(prev_point[1] - prev2_point[1], prev_point[0] - prev2_point[0]))
+
 
     # determine straight away or curve and incentive speed or turn
     # incentive speed on straight away, incentive heading before corner, else reward slower driving
-    if track_direction == distant_track_direction and direction_diff <= STRAIGHT_DIRECTION_THRESHOLD:
-        speed_reward_weight = 2
+    direction_diff = abs(distant_track_dir - heading)
+
+    if prev_track_direction == distant_track_dir and direction_diff <= STRAIGHT_DIRECTION_THRESHOLD and speed > CORNER_SPEED_THRESHOLD:
+        reward_weight = 2
+        # long straight, speed, speed and more speed
+    elif track_direction == distant_track_dir and direction_diff <= STRAIGHT_DIRECTION_THRESHOLD:
+        reward_weight = 2
+        # short straight ramp up speed
     elif direction_diff <= CORNER_DIRECTION_THRESHOLD and speed <= CORNER_SPEED_THRESHOLD:
-        speed_reward_weight = 2
+        reward_weight = 2
+        # corner, reduce speed and adhere top track curve.
     else:
-        speed_reward_weight = .5
+        reward_weight = .5
+        # outside of [parameters, reduce reward]
 
     # reward the cars progress on completion of the track with speed
     if all_wheels_on_track and crashed != True and steps > 0:
         # focus on least number of steps to get around track with a speed boost
-        reward = (progress / steps * 100) + (speed * speed_reward_weight) ** 2
+        # reward = (progress / steps * 100) + (speed * reward_weight) ** 2
+        reward = (progress / steps * 100) + (speed * reward_weight * (1-(direction_diff / 360))) **2
 
     return reward
