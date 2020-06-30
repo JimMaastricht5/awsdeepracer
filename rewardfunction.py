@@ -1,7 +1,7 @@
 import math
 
 def reward_function(params):
-    '''
+    """
     model #1: first attempt at rewarding driving near center line, finished 2 of 3 laps ~3:50
     model #2: reviewed reward for driving near center and added a * speed,
         added a reward for steps and finished, model was better.   I think the reward function over
@@ -10,74 +10,89 @@ def reward_function(params):
         pulled speed out of center line reward; added a penalty for slow driving
     model #4 added track direction and reward for steering in that same direction, disaster, turns too early
     model #5 incentive steps around the track and speed
-    '''
+    model #6 using GA's line and reward fucntions.  Stripped down
+    model #7 add progress reward and revise to baseline rewards from 1-10
+    """
 
-    all_wheels_on_track = params['all_wheels_on_track']
-    distance_from_center = params['distance_from_center']
-    track_width = params['track_width']
-    progress_percent = params['progress']
-    speed = params['speed']
+    heading = params['heading']
     steps = params['steps']
     progress = params['progress']
     crashed = params['is_crashed']
+    distance_from_center = params['distance_from_center']
+    progress_percent = params['progress']
+
+    track_width = params['track_width']
+    speed = params['speed']
     waypoints = params['waypoints']
     closest_waypoints = params['closest_waypoints']
-    heading = params['heading']
-
-    # Set the speed and steering thresholds based on action space
-    CORNER_SPEED_THRESHOLD = 1
-    CORNER_DIRECTION_THRESHOLD = 10.0
-    STRAIGHT_DIRECTION_THRESHOLD = 2.5
+    all_wheels_on_track = params['all_wheels_on_track']
+    x = params['x']
+    y = params['y']
+    xy = [x, y]
 
     # Initialize reward with a small number but not zero
     # because zero means off-track or crashed
-    reward_weight = 1
     reward = 1e-3
 
-    # determine position in waypoint list from current waypoint
-    # determine position in waypoint list from current waypoint
-    next_point = waypoints[closest_waypoints[1]]
-    prev_point = waypoints[closest_waypoints[0]]
-    prev2_point = waypoints[closest_waypoints[0] - 1]
+    if all_wheels_on_track:
+        # Determine how close the car is to the best straight line
+        reward += 10 * (1 - get_straight_line_score(closest_waypoints, waypoints, track_width, xy))
 
-    # loop thru waypoint for distant waypoint
-    # keep this code in case waypoint distant and prev2 doesnt work
-    last_track_point = prev_point
-    distant_point = prev_point
-    for track_point in waypoints:
-        if last_track_point == next_point:
-            distant_point = track_point
-        last_track_point = track_point
+        # Reward for more speed if the longest line is long (straight away) relative to center line
+        # speed max 3ms; 3.33 to get 1-10 reward scale
+        if get_line_length(closest_waypoints[0], waypoints, track_width) > 3:
+            reward += (1 - (distance_from_center / (track_width / 2))) * 3.3 * speed
+            
 
-    # calculate is corner upcoming or is straight
-    # Calculate the direction in radius, arctan2(dy, dx), the result is (-pi, pi) in radians
-    # [1] in points is Y coord, [0] is x coord
-    track_direction = math.degrees(math.atan2(next_point[1] - prev_point[1], next_point[0] - prev_point[0]))
-    distant_track_dir = math.degrees(math.atan2(distant_point[1] - next_point[1], distant_point[0] - next_point[0]))
-    prev_track_direction = math.degrees(math.atan2(prev_point[1] - prev2_point[1], prev_point[0] - prev2_point[0]))
-
-
-    # determine straight away or curve and incentive speed or turn
-    # incentive speed on straight away, incentive heading before corner, else reward slower driving
-    direction_diff = abs(distant_track_dir - heading)
-
-    if prev_track_direction == distant_track_dir and direction_diff <= STRAIGHT_DIRECTION_THRESHOLD and speed > CORNER_SPEED_THRESHOLD:
-        reward_weight = 2
-        # long straight, speed, speed and more speed
-    elif track_direction == distant_track_dir and direction_diff <= STRAIGHT_DIRECTION_THRESHOLD:
-        reward_weight = 2
-        # short straight ramp up speed
-    elif direction_diff <= CORNER_DIRECTION_THRESHOLD and speed <= CORNER_SPEED_THRESHOLD:
-        reward_weight = 2
-        # corner, reduce speed and adhere top track curve.
-    else:
-        reward_weight = .5
-        # outside of [parameters, reduce reward]
-
-    # reward the cars progress on completion of the track with speed
-    if all_wheels_on_track and crashed != True and steps > 0:
+        # reward the cars progress on completion of the track with speed
         # focus on least number of steps to get around track with a speed boost
-        # reward = (progress / steps * 100) + (speed * reward_weight) ** 2
-        reward = (progress / steps * 100) + (speed * reward_weight * (1-(direction_diff / 360))) **2
+        # progress is a percentage, want that on 1-10 scale to divide by 10
+        if steps > 0:
+            reward += (progress / 10)
 
-    return reward
+    return float(reward)
+
+
+# Returns the length of the longest straight line at the current point.
+def get_line_length(closest_wp, waypoints, width):
+    furthest_wp = waypoints[0]
+    for wp in waypoints:
+        if abs(wp[1] - waypoints[closest_wp][1]) < (width / 2):
+            furthest_wp = wp
+        else:
+            break
+    return math.sqrt(
+        pow(abs(waypoints[closest_wp][0] - furthest_wp[0]), 2) + pow(abs(waypoints[closest_wp][1] - furthest_wp[1]), 2))
+
+
+# Returns a number between 0 and 1. 1 is a the worst score, 0 is the best score.
+def get_straight_line_score(closest_wps, waypoints, width, xy):
+    furthest_pt = get_furthest_pt(closest_wps, waypoints, width)
+    return get_line_score(closest_wps, furthest_pt, xy)
+
+
+# Returns the waypoint which represents the endpoint of the longest
+# line within track bounds given the closest waypoint.
+def get_furthest_pt(closest_wp, waypoints, width):
+    furthest_wp = waypoints[0]
+    for wp in waypoints:
+        if abs(wp[1] - waypoints[closest_wp[1]][1]) < (width / 2):
+            furthest_wp = wp
+        else:
+            return furthest_wp
+
+
+# Returns a score between 0 and 1 depending on how close to
+# the best line the vehicle is currently on. 1 is too far away and 0 is on line.
+# p1 is the first point of a line, p2 is the end point of a line, curr_pos is the point
+# where the vehicle currently resides.
+def get_line_score(p1, p2, curr_pos):
+    x_spacing = (p2[0] - p1[0]) / (50 + 1)
+    y_spacing = (p2[1] - p1[1]) / (50 + 1)
+    points = [[p1[0] + i * x_spacing, p1[1] + i * y_spacing] for i in range(1, 50 + 1)]
+    min_dist = 100
+    for point in points:
+        dist = math.sqrt(pow((point[0] - curr_pos[0]), 2) + pow((point[1] - curr_pos[1]), 2))
+        if dist < min_dist:
+            min_dist = dist
+    return min(1, min_dist)
