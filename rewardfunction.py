@@ -34,6 +34,9 @@ def reward_function(params):
     # because zero means off-track or crashed
     reward = 1e-3
 
+    if progress == 100:
+        reward+=500
+    
     if all_wheels_on_track:
         # Determine how close the car is to the best straight line
         reward += 10 * (1 - get_straight_line_score(closest_waypoints, waypoints, track_width, xy))
