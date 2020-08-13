@@ -1,7 +1,4 @@
-import math
-
-def reward_function(params):
-    '''
+"""
     model #1: first attempt at rewarding driving near center line, finished 2 of 3 laps ~3:50
     model #2: reviewed reward for driving near center and added a * speed,
         added a reward for steps and finished, model was better.   I think the reward function over
@@ -10,63 +7,133 @@ def reward_function(params):
         pulled speed out of center line reward; added a penalty for slow driving
     model #4 added track direction and reward for steering in that same direction, disaster, turns too early
     model #5 incentive steps around the track and speed
-    '''
-
-    all_wheels_on_track = params['all_wheels_on_track']
-    distance_from_center = params['distance_from_center']
-    track_width = params['track_width']
-    progress_percent = params['progress']
-    speed = params['speed']
-    steps = params['steps']
-    progress = params['progress']
-    crashed = params['is_crashed']
-    waypoints = params['waypoints']
-    closest_waypoints = params['closest_waypoints']
-    heading = params['heading']
-
-    # Set the speed and steering thresholds based on action space
-    CORNER_SPEED_THRESHOLD = 1
-    CORNER_DIRECTION_THRESHOLD = 10.0
-    STRAIGHT_DIRECTION_THRESHOLD = 5.0
-
-    # Initialize reward with a small number but not zero
-    # because zero means off-track or crashed
-    speed_reward_weight = 1
-    reward = 1e-3
-
-    # determine position in waypoint list from current waypoint
-    # determine position in waypoint list from current waypoint
-    next_point = waypoints[closest_waypoints[1]]
-    prev_point = waypoints[closest_waypoints[0]]
-    # distant_point_index = waypoints.index[next_point] + 1
-    # distant_point = waypoints[distant_point_index]
-    last_track_point = prev_point
-    distant_point = prev_point
-    for track_points in waypoints:
-        if last_track_point == next_point:
-            distant_point = track_points
-        last_track_point = track_points
+    model #6 using GA's line and reward fucntions.  Stripped down
+    model #7 add progress reward and revise to baseline rewards from 1-10
+    """
+# heading = params['heading']
+# crashed = params['is_crashed']
+# distance_from_center = params['distance_from_center']
+# progress_percent = params['progress']
+# track_width = params['track_width']
+# speed = params['speed']
+# waypoints = params['waypoints']
+# closest_waypoints = params['closest_waypoints']
+# x = params['x']
+# y = params['y']
+# xy = [x, y]
+import math
+from time import time
 
 
-    # calculate is corner upcoming or is straight
-    # Calculate the direction in radius, arctan2(dy, dx), the result is (-pi, pi) in radians
-    # [1] in points is Y coord, [0] is x coord
-    track_direction = math.degrees(math.atan2(next_point[1] - prev_point[1], next_point[0] - prev_point[0]))
-    distant_track_direction = math.degrees(math.atan2(distant_point[1] - next_point[1], distant_point[0] - next_point[0]))
-    direction_diff = abs(distant_track_direction- heading)
+class Reward:
+    def __init__(self, verbose=False):
+        self.previous_steps = None
+        self.initial_time = None
+        self.verbose = verbose
 
-    # determine straight away or curve and incentive speed or turn
-    # incentive speed on straight away, incentive heading before corner, else reward slower driving
-    if track_direction == distant_track_direction and direction_diff <= STRAIGHT_DIRECTION_THRESHOLD:
-        speed_reward_weight = 2
-    elif direction_diff <= CORNER_DIRECTION_THRESHOLD and speed <= CORNER_SPEED_THRESHOLD:
-        speed_reward_weight = 2
-    else:
-        speed_reward_weight = .5
+    @staticmethod
+    def get_vector_length(v):
+        return (v[0] ** 2 + v[1] ** 2) ** 0.5
 
-    # reward the cars progress on completion of the track with speed
-    if all_wheels_on_track and crashed != True and steps > 0:
-        # focus on least number of steps to get around track with a speed boost
-        reward = (progress / steps * 100) + (speed * speed_reward_weight) ** 2
+    @staticmethod
+    def vector(a, b):
+        return b[0] - a[0], b[1] - a[1]
 
-    return reward
+    @staticmethod
+    def get_time(params):
+        # remember: this will not return time before
+        # the first step has completed so the total
+        # time will be slightly lower
+        return params.get('timestamp', None) # or time()
+
+
+    # Returns the length of the longest straight line at the current point.
+    @staticmethod
+    def get_line_length(closest_wp, waypoints, width):
+        furthest_wp = waypoints[0]
+        for wp in waypoints:
+            if abs(wp[1] - waypoints[closest_wp][1]) < (width / 2):
+                furthest_wp = wp
+            else:
+                break
+        return math.sqrt(pow(abs(waypoints[closest_wp][0] - furthest_wp[0]), 2) + pow(abs(waypoints[closest_wp][1] - furthest_wp[1]),2))
+
+
+    # Returns the waypoint which represents the endpoint of the longest
+    # line within track bounds given the closest waypoint.
+    @staticmethod
+    def get_furthest_pt(closest_wp, waypoints, width):
+        furthest_wp = waypoints[0]
+        for wp in waypoints:
+            if abs(wp[1] - waypoints[closest_wp[1]][1]) < (width / 2):
+                furthest_wp = wp
+            else:
+                return furthest_wp
+
+    # Returns a number between 0 and 1. 1 is a the worst score, 0 is the best score.
+    @staticmethod
+    def get_straight_line_score(self, closest_wps, waypoints, width, xy):
+        furthest_pt = self.get_furthest_pt(closest_wps, waypoints, width)
+        return self.get_line_score(closest_wps, furthest_pt, xy)
+
+
+    # Returns a score between 0 and 1 depending on how close to
+    # the best line the vehicle is currently on. 1 is too far away and 0 is on line.
+    # p1 is the first point of a line, p2 is the end point of a line, curr_pos is the point
+    # where the vehicle currently resides.
+    @staticmethod
+    def get_line_score(p1, p2, curr_pos):
+        x_spacing = (p2[0] - p1[0]) / (50 + 1)
+        y_spacing = (p2[1] - p1[1]) / (50 + 1)
+        points = [[p1[0] + i * x_spacing, p1[1] + i * y_spacing] for i in range(1, 50 + 1)]
+        min_dist = 100
+        for point in points:
+            dist = math.sqrt(pow((point[0] - curr_pos[0]), 2) + pow((point[1] - curr_pos[1]), 2))
+            if dist < min_dist:
+                min_dist = dist
+        return min(1, min_dist)
+
+
+    # reward function with reward object
+    def reward_function(self, params):
+        reward = 1e-3  # Initialize reward with a small number but not zero
+        if self.previous_steps is None or self.previous_steps > params['steps']:
+            self.initial_time = self.get_time(params)
+
+        self.previous_steps = params['steps']
+
+        if params['progress'] == 100:
+            reward += 500
+
+       if params['all_wheels_on_track']: # Determine how close the car is to the best straight line
+            reward += 10 * (1 - self.get_straight_line_score(self, params['closest_waypoints'], params['waypoints'], params['track_width'], [params['x'], params['y']]))
+
+            # Reward for more speed if the longest line is long (straight away) relative to center line
+            # speed max 2ms; 5 to get 1-10 reward scale
+            closest_waypoints = params['closest_waypoints']
+            if self.get_line_length(closest_waypoints[0], params['waypoints'], params['track_width']) > 3:
+                reward += (1 - (params['distance_from_center'] / (params['track_width'] / 2))) * 5 * params['speed']
+
+            # reward the cars progress on completion of the track with speed
+            # focus on least number of steps to get around track with a speed boost
+            # progress is a percentage, want that on 1-10 scale to divide by 10
+            if params['steps'] > 0:
+                reward += (params['progress'] / 10)
+
+        if self.verbose:
+            print(params)
+
+        return float(reward)
+
+
+# instantiate object from class
+reward_object = Reward()
+
+# base reward function and call to reward class
+def reward_function(params):
+    return reward_object.reward_function(params)
+
+
+
+
+
