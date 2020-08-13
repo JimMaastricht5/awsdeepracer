@@ -1,0 +1,94 @@
+    ###############################################
+    # Step 1: Read input parameters               #
+    ###############################################
+    # ALL_WHEELS_ON_TRACK:  flag to indicate if the agent is on the track
+    # Type: Boolean,
+    all_wheels_on_track = params['all_wheels_on_track']	
+    
+    # X:  agent's x-coordinate in meters
+    # Type: float,
+    x = params['x']
+    
+    # Y:  agent's y-coordinate in meters
+    # Type: float,
+    y = params['y'] 
+    
+    # CLOSEST_OBJECTS:  zero-based indices of the two closest objects to the agent's current position of (x, y).
+    # Type: [int, int],
+    closest_objects = params['closest_objects'] 
+    
+    # CLOSEST_WAYPOINTS:  indices of the two nearest waypoints.
+    # Type: [int, int],
+    closest_waypoints = params['closest_waypoints'] 
+    
+    # DISTANCE_FROM_CENTER:  distance in meters from the track center 
+    # Type: float,
+    distance_from_center = params['distance_from_center']
+    
+    # IS_CRASHED:  Boolean flag to indicate whether the agent has crashed.
+    # Type: Boolean,
+    is_crashed = params['is_crashed'] 
+    
+    # IS_LEFT_OF_CENTER:  Flag to indicate if the agent is on the left side to the track center or not. 
+    # Type: Boolean,
+    is_left_of_center = params['is_left_of_center'] 
+    
+    # IS_OFFTRACK:  Boolean flag to indicate whether the agent has gone off track.
+    # Type: Boolean,
+    is_offtrack = params['is_offtrack'] 
+    
+    # IS_REVERSED:  flag to indicate if the agent is driving clockwise (True) or counter clockwise (False).
+    # Type: Boolean,
+    is_reversed = params['is_reversed'] 
+    
+    # HEADING:  agent's yaw in degrees
+    # Type: float,
+    heading = params['heading']
+    
+    # OBJECTS_DISTANCE:  list of the objects' distances in meters between 0 and track_length in relation to the starting line.
+    # Type: [float, ],
+    objects_distance = params['objects_distance']
+    
+    # OBJECTS_HEADING:  list of the objects' headings in degrees between -180 and 180.
+    # Type: [float, ],
+    objects_heading = params['objects_heading']
+    
+    # OBJECTS_LEFT_OF_CENTER:  list of Boolean flags indicating whether elements' objects are left of the center (True) or not (False).
+    # Type: [Boolean, ],
+    objects_left_of_center = params['objects_left_of_center']
+    
+    # OBJECTS_LOCATION:  list of object locations [(x,y), ...].
+    # Type: [(float, float),],
+    objects_location = params['objects_location']
+    
+    # OBJECTS_SPEED:  list of the objects' speeds in meters per second.
+    # Type: [float, ],
+    objects_speed = params['objects_speed']
+    
+    # PROGRESS:  percentage of track completed
+    # Type: float,
+    progress = params['progress']
+    
+    # SPEED:  agent's speed in meters per second (m/s)
+    # Type: float,
+    speed = params['speed']	 
+    
+    # STEERING_ANGLE:  agent's steering angle in degrees
+    # Type: float,
+    steering_angle = params['steering_angle']
+    
+    # STEPS:  number steps completed
+    # Type: int,
+    steps = params['steps']	 
+    
+    # TRACK_LENGTH:  track length in meters.
+    # Type: float,
+    track_length = params['track_length']
+    
+    # TRACK_WIDTH:  width of the track
+    # Type: float,
+    track_width = params['track_width']
+    
+    # WAYPOINTS:  list of (x,y) as milestones along the track center
+    # Type: [(float, float), ]
+    waypoints = params['waypoints']
