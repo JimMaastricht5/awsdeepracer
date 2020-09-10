@@ -12,6 +12,8 @@ def reward_function(params):
     model #5 incentive steps around the track and speed
     model #6 using GA's line and reward fucntions.  Stripped down
     model #7 add progress reward and revise to baseline rewards from 1-10
+    model #8 was an experiement with presistent objects; failure and revision back to base
+    model #9 create a strong differentiation based on track placement; more emphasis on center line; changed formula to add speed instead of multiply
     """
 
     heading = params['heading']
@@ -42,9 +44,10 @@ def reward_function(params):
         reward += 10 * (1 - get_straight_line_score(closest_waypoints, waypoints, track_width, xy))
 
         # Reward for more speed if the longest line is long (straight away) relative to center line
-        # speed max 3ms; 5 to get 1-30 reward scale
+        # speed max 3ms; 1-30 reward scale for speed
+        # center line tracking now addititive 1-30 weighted to center
         if get_line_length(closest_waypoints[0], waypoints, track_width) > 3:
-            reward += (1 - (distance_from_center / (track_width / 2))) * 10 * speed
+            reward += ((1 - (distance_from_center / (track_width / 2))) * 30) + (10 * speed)
             
 
         # reward the cars progress on completion of the track with speed
