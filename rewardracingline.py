@@ -70,10 +70,10 @@ class Reward:
 
         # Calculate which one of the closest racing points is the next one and which one the previous one
         def next_prev_racing_point(closest_coords, second_closest_coords, car_coords, heading):
-
+            import math
             # Virtually set the car more into the heading direction 
-            heading_vector = [math.cos(math.radians(
-                heading)), math.sin(math.radians(heading))]
+
+            heading_vector = [math.cos(math.radians(heading)), math.sin(math.radians(heading))]  # aws does not like this line
             new_car_coords = [car_coords[0]+heading_vector[0],
                               car_coords[1]+heading_vector[1]]
 

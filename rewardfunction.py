@@ -22,7 +22,7 @@
 # y = params['y']
 # xy = [x, y]
 import math
-from time import time
+# from time import time
 
 
 class Reward:
@@ -102,7 +102,7 @@ class Reward:
 
         self.previous_steps = params['steps']
 
-        if params['progress'] == 100:
+        if params['progress'] is 100:
             reward += 500
 
        if params['all_wheels_on_track']: # Determine how close the car is to the best straight line
