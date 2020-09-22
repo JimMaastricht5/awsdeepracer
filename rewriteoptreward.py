@@ -10,13 +10,13 @@ class Reward:
         self.verbose = verbose
 
 
-     def reward_function(self, params):
+    def reward_function(self, params):
 
         # Import package (needed for heading)
         # attempted to load math package fails. defined func manually below
 
         ################## HELPER FUNCTIONS ###################
-        def arctan(n, x):
+        def arctan(x, n=9):  #default terms to 9
             x2 = x * x
             d = n * 2 + 1
             for k in range (n, 0, -1):
@@ -43,7 +43,7 @@ class Reward:
 
         def sin(d):
             pi = 3.14159265359
-            n = 180 / int(d)  # 180 degrees = pi radians
+            n = 180 / d  # 180 degrees = pi radians
             x = pi / n  # Converting degrees to radians
             ans = x - (x ** 3 / factorial(3)) + (x ** 5 / factorial(5)) - (x ** 7 / factorial(7)) + (
                         x ** 9 / factorial(9))
@@ -51,7 +51,7 @@ class Reward:
 
         def cos(d):
             pi = 3.14159265359
-            n = 180 / int(d)
+            n = 180 / d  # 180 degrees = pi radians
             x = pi / n
             ans = 1 - (x ** 2 / factorial(2)) + (x ** 4 / factorial(4)) - (x ** 6 / factorial(6)) + (
                         x ** 8 / factorial(8))
