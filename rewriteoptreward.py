@@ -149,7 +149,7 @@ class Reward:
                                                             heading)
 
             # Calculate the direction in radius, arctan2(dy, dx), the result is (-pi, pi) in radians
-            track_direction = arctan(next_point[1] - prev_point[1], next_point[0] - prev_point[0])
+            track_direction = arctan2(next_point[1] - prev_point[1], next_point[0] - prev_point[0])
 
             # Convert to degree
             track_direction = degrees(track_direction)
