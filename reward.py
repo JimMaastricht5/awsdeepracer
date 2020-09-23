@@ -40,6 +40,9 @@ def reward_function(params):
     # because zero means off-track or crashed
     reward = 1e-3
 
+    STANDARD_TIME = 30
+    FASTEST_TIME = 19
+
     if all_wheels_on_track:
         # Determine how close the car is to the best straight line
         # reward += 10 * (1 - get_straight_line_score(closest_waypoints, waypoints, track_width, xy))
@@ -94,8 +97,6 @@ def reward_function(params):
 
         # Reward if less steps
         REWARD_PER_STEP_FOR_FASTEST_TIME = 1
-        STANDARD_TIME = 30
-        FASTEST_TIME = 19
         times_list = [row[3] for row in racing_track]
         projected_time = fprojected_time(first_racingpoint_index, closest_index, steps, times_list)
         try:
