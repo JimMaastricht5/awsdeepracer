@@ -22,7 +22,6 @@
 # y = params['y']
 # xy = [x, y]
 import math
-# from time import time
 
 
 class Reward:

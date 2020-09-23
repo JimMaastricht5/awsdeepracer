@@ -59,6 +59,7 @@ def reward_function(params):
     return float(reward)
 
 
+# **** HELPER FUNCTIONS ******
 # Returns the length of the longest straight line at the current point.
 def get_line_length(closest_wp, waypoints, width):
     furthest_wp = waypoints[0]
@@ -102,3 +103,140 @@ def get_line_score(p1, p2, curr_pos):
         if dist < min_dist:
             min_dist = dist
     return min(1, min_dist)
+
+# functions from optimization reward
+def dist_2_points(x1, x2, y1, y2):
+    return abs(abs(x1 - x2) ** 2 + abs(y1 - y2) ** 2) ** 0.5
+
+
+def closest_2_racing_points_index(racing_coords, car_coords):
+    # Calculate all distances to racing points
+    distances = []
+    for i in range(len(racing_coords)):
+        distance = dist_2_points(x1=racing_coords[i][0], x2=car_coords[0],
+                                 y1=racing_coords[i][1], y2=car_coords[1])
+        distances.append(distance)
+
+    # Get index of the closest racing point
+    closest_index = distances.index(min(distances))
+
+    # Get index of the second closest racing point
+    distances_no_closest = distances.copy()
+    distances_no_closest[closest_index] = 999
+    second_closest_index = distances_no_closest.index(
+        min(distances_no_closest))
+
+    return [closest_index, second_closest_index]
+
+
+def dist_to_racing_line(closest_coords, second_closest_coords, car_coords):
+    # Calculate the distances between 2 closest racing points
+    a = abs(dist_2_points(x1=closest_coords[0],
+                          x2=second_closest_coords[0],
+                          y1=closest_coords[1],
+                          y2=second_closest_coords[1]))
+
+    # Distances between car and closest and second closest racing point
+    b = abs(dist_2_points(x1=car_coords[0],
+                          x2=closest_coords[0],
+                          y1=car_coords[1],
+                          y2=closest_coords[1]))
+    c = abs(dist_2_points(x1=car_coords[0],
+                          x2=second_closest_coords[0],
+                          y1=car_coords[1],
+                          y2=second_closest_coords[1]))
+
+    # Calculate distance between car and racing line (goes through 2 closest racing points)
+    # try-except in case a=0 (rare bug in DeepRacer)
+    try:
+        distance = abs(-(a ** 4) + 2 * (a ** 2) * (b ** 2) + 2 * (a ** 2) * (c ** 2) -
+                       (b ** 4) + 2 * (b ** 2) * (c ** 2) - (c ** 4)) ** 0.5 / (2 * a)
+    except:
+        distance = b
+
+    return distance
+
+
+# Calculate which one of the closest racing points is the next one and which one the previous one
+def next_prev_racing_point(closest_coords, second_closest_coords, car_coords, heading):
+    import math
+    # Virtually set the car more into the heading direction
+
+    heading_vector = [math.cos(math.radians(heading)), math.sin(math.radians(heading))]  # aws does not like this line
+    new_car_coords = [car_coords[0] + heading_vector[0],
+                      car_coords[1] + heading_vector[1]]
+
+    # Calculate distance from new car coords to 2 closest racing points
+    distance_closest_coords_new = dist_2_points(x1=new_car_coords[0],
+                                                x2=closest_coords[0],
+                                                y1=new_car_coords[1],
+                                                y2=closest_coords[1])
+    distance_second_closest_coords_new = dist_2_points(x1=new_car_coords[0],
+                                                       x2=second_closest_coords[0],
+                                                       y1=new_car_coords[1],
+                                                       y2=second_closest_coords[1])
+
+    if distance_closest_coords_new <= distance_second_closest_coords_new:
+        next_point_coords = closest_coords
+        prev_point_coords = second_closest_coords
+    else:
+        next_point_coords = second_closest_coords
+        prev_point_coords = closest_coords
+
+    return [next_point_coords, prev_point_coords]
+
+
+def racing_direction_diff(closest_coords, second_closest_coords, car_coords, heading):
+    # Calculate the direction of the center line based on the closest waypoints
+    next_point, prev_point = next_prev_racing_point(closest_coords,
+                                                    second_closest_coords,
+                                                    car_coords,
+                                                    heading)
+
+    # Calculate the direction in radius, arctan2(dy, dx), the result is (-pi, pi) in radians
+    track_direction = math.atan2(
+        next_point[1] - prev_point[1], next_point[0] - prev_point[0])
+
+    # Convert to degree
+    track_direction = math.degrees(track_direction)
+
+    # Calculate the difference between the track direction and the heading direction of the car
+    direction_diff = abs(track_direction - heading)
+    if direction_diff > 180:
+        direction_diff = 360 - direction_diff
+
+    return direction_diff
+
+
+# Gives back indexes that lie between start and end index of a cyclical list
+# (start index is included, end index is not)
+def indexes_cyclical(start, end, array_len):
+    if end < start:
+        end += array_len
+
+    return [index % array_len for index in range(start, end)]
+
+
+# Calculate how long car would take for entire lap, if it continued like it did until now
+def projected_time(first_index, closest_index, step_count, times_list):
+    # Calculate how much time has passed since start
+    current_actual_time = (step_count - 1) / 15
+
+    # Calculate which indexes were already passed
+    indexes_traveled = indexes_cyclical(first_index, closest_index, len(times_list))
+
+    # Calculate how much time should have passed if car would have followed optimals
+    current_expected_time = sum([times_list[i] for i in indexes_traveled])
+
+    # Calculate how long one entire lap takes if car follows optimals
+    total_expected_time = sum(times_list)
+
+    # Calculate how long car would take for entire lap, if it continued like it did until now
+    try:
+        projected_time = (current_actual_time / current_expected_time) * total_expected_time
+    except:
+        projected_time = 9999
+
+    return projected_time
+
+#################### RACING LINE ######################
