@@ -1,7 +1,7 @@
 # Jim Maastricht 9/18/20 based on An Advanced Guide to deep racer.  
 # modified race line to work with google drive
 # resolved point reference error in action space velocity calculation
-# NOT VALIDATED: line 71 error
+# corrected error in line 71 by remove redundant import math
 import math
 
 
@@ -70,7 +70,7 @@ class Reward:
 
         # Calculate which one of the closest racing points is the next one and which one the previous one
         def next_prev_racing_point(closest_coords, second_closest_coords, car_coords, heading):
-            import math
+            
             # Virtually set the car more into the heading direction 
 
             heading_vector = [math.cos(math.radians(heading)), math.sin(math.radians(heading))]  # aws does not like this line

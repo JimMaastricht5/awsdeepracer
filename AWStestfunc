@@ -1,0 +1,336 @@
+'''
+Lambda function to verify validity of the Reward function
+@author: Sunil Mallya
+@author: Manish Manwani
+'''
+
+import inspect
+import json
+import re
+import sys
+import traceback
+import unittest
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
+
+
+class DeepRacerError(Exception):
+    def __init__(self, **kwargs):
+        self._dict = kwargs
+
+    def __str__(self):
+        return json.dumps(self._dict)
+
+
+def wrap(fn):
+    def f(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except DeepRacerError:
+            raise
+        except:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            tb = traceback.extract_tb(exc_traceback)[-1]
+            exc = traceback.format_exc().splitlines()[-1]
+            is_syntax_error = isinstance(exc_value, SyntaxError)
+            filename = exc_value.filename if is_syntax_error else tb[0]
+            lineno = exc_value.lineno if is_syntax_error else tb[1]
+            line = exc_value.text if is_syntax_error else tb[3]
+            error, message = exc.split(":")
+
+            type = 'SYNTAX_ERROR' if is_syntax_error \
+                else 'IMPORT_ERROR' if isinstance(exc_value, ImportError) \
+                else 'TEST_FAILURE'
+            _dict = {'type': type,
+                     'message': message.strip(),
+                     'line': line.strip(),
+                     }
+            if filename.endswith('reward_function.py'):
+                _dict['lineNumber'] = lineno
+
+            raise DeepRacerError(**_dict)
+
+    return f
+
+
+class TestSyntax(unittest.TestCase):
+    @wrap
+    def test_syntax(self):
+        from reward_function import reward_function
+
+
+class TestRewardFunction(unittest.TestCase):
+    @wrap
+    def setUp(self):
+        from reward_function import reward_function
+
+        self.rf = reward_function
+
+        # reinvent track waypoints
+        self.waypoints = [[2.5, 0.75],
+                          [3.33, 0.75],
+                          [4.17, 0.75],
+                          [5.0, 0.75],
+                          [5.83, 0.75],
+                          [6.67, 0.75],
+                          [7.5, 0.75],
+                          [8.33, 0.75],
+                          [9.17, 0.75],
+                          [9.75, 0.94],
+                          [10.00, 1.5],
+                          [10.00, 1.875],
+                          [9.92, 2.125],
+                          [9.58, 2.375],
+                          [9.17, 2.75],
+                          [8.33, 2.5],
+                          [7.5, 2.5],
+                          [7.08, 2.56],
+                          [6.67, 2.625],
+                          [5.83, 3.44],
+                          [5.0, 4.375],
+                          [4.67, 4.69],
+                          [4.33, 4.875],
+                          [4.0, 5.0],
+                          [3.33, 5.0],
+                          [2.5, 4.95],
+                          [2.08, 4.94],
+                          [1.67, 4.875],
+                          [1.33, 4.69],
+                          [0.92, 4.06],
+                          [1.17, 3.185],
+                          [1.5, 1.94],
+                          [1.6, 1.5],
+                          [1.83, 1.125],
+                          [2.17, 0.885]]
+        self.valid_params = {'all_wheels_on_track': True,
+                             'x': 2.5,
+                             'y': 0.75,
+                             'distance_from_center': 0,
+                             'heading': 0,
+                             'progress': 0,
+                             'steps': 1,
+                             'speed': 0.5,
+                             'steering_angle': 6,
+                             'track_width': 0.2,
+                             'waypoints': self.waypoints,
+                             'closest_waypoints': [0, 1],
+                             'is_left_of_center': True,
+                             'is_reversed': True,
+                             'track_length': 16.635021275568313,
+                             'closest_objects' : [0, 1],
+                             'objects_location': [[4.511289152034186, 1.3292364463761641], [6.537302737755836, 1.4140104486149618], [4.752976532490525, 3.1350845729056838], [3.103370840828792, 4.133062703357412], [0.7094212601659824, 4.217507179944688], [1.5996645329306798, 1.7124666440529925]],
+                             'objects_left_of_center': [True, True, False, True, False, True],
+                             'object_in_camera': True,
+                             'objects_speed': [0.2, 0.2, 0.2, 0.2, 0.2, 0.2],
+                             'objects_heading': [2.717322296283114, 2.368920328229894, -1.9305073380382327, -1.3586571052564007, 0.00025041038280975884, 0.5573269195381345],
+                             'objects_distance': [1.9501724549506574, 4.139700164331426, 7.997164727523002, 10.024219705986598, 12.56561517097048, 15.090712948383509],
+                             'is_crashed': False,
+                             'is_offtrack': True,
+                             }
+
+        self.start_car = {'all_wheels_on_track': True,
+                          'x': 2.5,
+                          'y': 0.75,
+                          'distance_from_center': 0,
+                          'heading': 0,
+                          'progress': 0,
+                          'steps': 1,
+                          'speed': 0.1,
+                          'steering_angle': 0.2,
+                          'track_width': 0.2,
+                          'waypoints': self.waypoints,
+                          'closest_waypoints': [0, 1],
+                          'is_left_of_center': True,
+                          'is_reversed': True,
+                          'track_length': 16.635021275568313,
+                          'closest_objects' : [0, 1],
+                          'objects_location': [[4.511289152034186, 1.3292364463761641], [6.537302737755836, 1.4140104486149618], [4.752976532490525, 3.1350845729056838], [3.103370840828792, 4.133062703357412], [0.7094212601659824, 4.217507179944688], [1.5996645329306798, 1.7124666440529925]],
+                          'objects_left_of_center': [True, True, False, True, False, True],
+                          'object_in_camera': True,
+                          'objects_speed': [0.2, 0.2, 0.2, 0.2, 0.2, 0.2],
+                          'objects_heading': [2.717322296283114, 2.368920328229894, -1.9305073380382327, -1.3586571052564007, 0.00025041038280975884, 0.5573269195381345],
+                          'objects_distance': [1.9501724549506574, 4.139700164331426, 7.997164727523002, 10.024219705986598, 12.56561517097048, 15.090712948383509],
+                          'is_crashed': False,
+                          'is_offtrack': True,
+                          }
+
+        self.progress_car = {'all_wheels_on_track': True,
+                             'x': 4,
+                             'y': 5,
+                             'distance_from_center': 0.3,
+                             'heading': 359.9,
+                             'progress': 50,
+                             'steps': 100,
+                             'speed': 1.0,
+                             'steering_angle': 6,
+                             'track_width': 0.2,
+                             'waypoints': self.waypoints,
+                             'closest_waypoints': [3, 4],
+                             'is_left_of_center': True,
+                             'is_reversed': True,
+                             'track_length': 16.635021275568313,
+                             'closest_objects' : [0, 1],
+                             'objects_location': [[4.511289152034186, 1.3292364463761641], [6.537302737755836, 1.4140104486149618], [4.752976532490525, 3.1350845729056838], [3.103370840828792, 4.133062703357412], [0.7094212601659824, 4.217507179944688], [1.5996645329306798, 1.7124666440529925]],
+                             'objects_left_of_center': [True, True, False, True, False, True],
+                             'object_in_camera': True,
+                             'objects_speed': [0.2, 0.2, 0.2, 0.2, 0.2, 0.2],
+                             'objects_heading': [2.717322296283114, 2.368920328229894, -1.9305073380382327, -1.3586571052564007, 0.00025041038280975884, 0.5573269195381345],
+                             'objects_distance': [1.9501724549506574, 4.139700164331426, 7.997164727523002, 10.024219705986598, 12.56561517097048, 15.090712948383509],
+                             'is_crashed': False,
+                             'is_offtrack': True,
+                             }
+
+        self.off_track_car = {'all_wheels_on_track': False,
+                              'x': 12,
+                              'y': 2,
+                              'distance_from_center': 1,
+                              'heading': 359.9,
+                              'progress': 0,
+                              'steps': 1,
+                              'speed': 1,
+                              'steering_angle': 15,
+                              'track_width': 2.5,
+                              'waypoints': self.waypoints,
+                              'closest_waypoints': [0, 1],
+                              'is_left_of_center': True,
+                              'is_reversed': True,
+                              'track_length': 16.635021275568313,
+                              'closest_objects' : [0, 1],
+                              'objects_location': [[4.511289152034186, 1.3292364463761641], [6.537302737755836, 1.4140104486149618], [4.752976532490525, 3.1350845729056838], [3.103370840828792, 4.133062703357412], [0.7094212601659824, 4.217507179944688], [1.5996645329306798, 1.7124666440529925]],
+                              'objects_left_of_center': [True, True, False, True, False, True],
+                              'object_in_camera': True,
+                              'objects_speed': [0.2, 0.2, 0.2, 0.2, 0.2, 0.2],
+                              'objects_heading': [2.717322296283114, 2.368920328229894, -1.9305073380382327, -1.3586571052564007, 0.00025041038280975884, 0.5573269195381345],
+                              'objects_distance': [1.9501724549506574, 4.139700164331426, 7.997164727523002, 10.024219705986598, 12.56561517097048, 15.090712948383509],
+                              'is_crashed': False,
+                              'is_offtrack': True,
+                              }
+
+        self.finish_car = {'all_wheels_on_track': True,
+                           'x': 2.18,
+                           'y': 0.885,
+                           'distance_from_center': 0,
+                           'heading': 359.9,
+                           'progress': 100,
+                           'steps': 10000,
+                           'speed': 5.0,
+                           'steering_angle': 0,
+                           'track_width': 2.5,
+                           'waypoints': self.waypoints,
+                           'closest_waypoints': [len(self.waypoints) - 2, len(self.waypoints) - 1],
+                           'is_left_of_center': True,
+                           'is_reversed': True,
+                           'track_length': 16.635021275568313,
+                           'closest_objects' : [0, 1],
+                           'objects_location': [[4.511289152034186, 1.3292364463761641], [6.537302737755836, 1.4140104486149618], [4.752976532490525, 3.1350845729056838], [3.103370840828792, 4.133062703357412], [0.7094212601659824, 4.217507179944688], [1.5996645329306798, 1.7124666440529925]],
+                           'objects_left_of_center': [True, True, False, True, False, True],
+                           'object_in_camera': True,
+                           'objects_speed': [0.2, 0.2, 0.2, 0.2, 0.2, 0.2],
+                           'objects_heading': [2.717322296283114, 2.368920328229894, -1.9305073380382327, -1.3586571052564007, 0.00025041038280975884, 0.5573269195381345],
+                           'objects_distance': [1.9501724549506574, 4.139700164331426, 7.997164727523002, 10.024219705986598, 12.56561517097048, 15.090712948383509],
+                           'is_crashed': False,
+                           'is_offtrack': True,
+                           }
+
+    @wrap
+    def test_reward_function_signature(self):
+        parameters = inspect.signature(self.rf).parameters
+        if len(parameters.keys()) != 1:
+            self.fail("Invalid reward function signature. Should be def reward_function(params)")
+
+    @wrap
+    def test_all_imported_modules(self):
+        self.rf(self.valid_params)
+
+    @wrap
+    def test_return_type(self):
+        reward = self.rf(self.valid_params)
+        if not isinstance(reward, float):
+            self.fail("Method returned non-floating type value: {}".format(reward))
+
+    @wrap
+    def test_reward_range(self):
+        reward = self.rf(self.valid_params)
+        if not self._reward_in_range(reward):
+            self.fail("Reward score out of range. Reward: {}, range: {}".format(reward, "[-1e5, 1e5]"))
+
+    @staticmethod
+    def _reward_in_range(reward):
+        return isinstance(reward, float) and -1e5 <= reward <= 1e5
+
+    @wrap
+    def test_start_car(self):
+        reward = self.rf(self.start_car)
+        if not self._reward_in_range(reward):
+            self.fail("Vehicle failed at start position. Reward: {}".format(reward))
+
+    @wrap
+    def test_progress_car(self):
+        reward = self.rf(self.progress_car)
+        if not self._reward_in_range(reward):
+            self.fail("Vehicle failed to make progress. Reward: {}".format(reward))
+
+    @wrap
+    def test_off_track_car(self):
+        reward = self.rf(self.off_track_car)
+        if not self._reward_in_range(reward):
+            self.fail("Off-track vehicle failed to make progress. Reward: {}".format(reward))
+
+    @wrap
+    def test_finish_car(self):
+        reward = self.rf(self.finish_car)
+        if not self._reward_in_range(reward):
+            self.fail("Vehicle failed to make it to end of track. Reward: {}".format(reward))
+
+    def fail(self, msg=None):
+        raise DeepRacerError(message=msg, type='TEST_FAILURE')
+
+
+def fail_fast_suite():
+    suite = unittest.TestSuite()
+    suite.addTest(TestSyntax('test_syntax'))
+    suite.addTest(TestRewardFunction('test_reward_function_signature'))
+    suite.addTest(TestRewardFunction('test_all_imported_modules'))
+    suite.addTest(TestRewardFunction('test_return_type'))
+    return suite
+
+
+def functional_test_suite():
+    suite = unittest.TestSuite()
+    suite.addTest(TestRewardFunction('test_reward_range'))
+    suite.addTest(TestRewardFunction('test_start_car'))
+    suite.addTest(TestRewardFunction('test_progress_car'))
+    suite.addTest(TestRewardFunction('test_off_track_car'))
+    suite.addTest(TestRewardFunction('test_finish_car'))
+    return suite
+
+
+def run():
+    return process_results(unittest.TextTestRunner(failfast=True).run(fail_fast_suite())) \
+           or process_results(unittest.TextTestRunner().run(functional_test_suite()))
+
+
+pool = ThreadPoolExecutor(1)
+
+
+def lambda_handler(event, context):
+    try:
+        future = pool.submit(run)
+        errors = future.result(10)
+    except TimeoutError as e:
+        errors = [json.loads(str(DeepRacerError(message='Reward function took too long to finish.',
+                                                type='TEST_FAILURE')))]
+
+    return errors
+
+
+def process_results(test_results):
+    return list(map(lambda e: extract_failure_message(e[1]), test_results.errors + test_results.failures))
+
+
+def extract_failure_message(txt):
+    line = txt.splitlines()[-1]
+    try:
+        return json.loads(re.search('DeepRacerError: (.+)', line).group(1))
+    except:
+        pass
+    return json.loads(str(DeepRacerError(message=line, type='TEST_FAILURE')))
